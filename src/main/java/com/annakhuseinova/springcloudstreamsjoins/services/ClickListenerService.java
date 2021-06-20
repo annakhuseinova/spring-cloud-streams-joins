@@ -24,12 +24,16 @@ public class ClickListenerService {
                          @Input("clicks-channel") KStream<String, AdClick> click){
         click.foreach((key, value)-> log.info("Click Key: {}, Value: {}", key, value));
 
-        click.join(inventory,
-                (clickKey, clickValue)-> clickKey,
-                (clickValue, inventoryValue)-> inventoryValue)
-                .groupBy((joinedKey, joinedValue)-> joinedValue.getNewsType(),
+        click.join(inventory, // the GlobalKTable we are joining
+                (clickKey, clickValue)-> clickKey, // Returns a new join key (which can be different than the current
+                // KStream key). This feature is to join GlobalKTable with a foreign key. Here we don't need it
+                // and we return the same key
+                (clickValue, inventoryValue)-> inventoryValue) // value joiner lambda (we are creating new values here)
+                // and for that we use the value both from KStream and GlobalKTable. This will be triggered
+                // only if the keys match
+                .groupBy((joinedKey, joinedValue)-> joinedValue.getNewsType(), // we are grouping by news type and count
                         Grouped.with(Serdes.String(),
-                                new JsonSerde<>(AdInventories.class)))
+                                new JsonSerde<>(AdInventories.class))) // explicitly setting serdes to avoid serde errors
                 .count()
                 .toStream().foreach((key, value)-> log.info("Click Key: {}, Value: {}", key, value));
     }
